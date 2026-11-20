@@ -1,0 +1,11 @@
+{
+  "name": "simulate",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "test": "node --test \"skills/simulate/core/test/*.test.ts\" \"demo/test/*.test.ts\"",
+    "demo": "node demo/sim/run.ts every-scenario"
+  }
+}

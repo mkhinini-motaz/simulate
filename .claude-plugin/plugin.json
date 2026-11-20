@@ -1,0 +1,22 @@
+{
+  "name": "simulate",
+  "version": "0.1.0",
+  "description": "Simulation testing for Claude Code: bots play your users against an isolated copy of your app, checks enforce the rules you confirm, and every finding becomes a failing test.",
+  "author": {
+    "name": "mkhinini-motaz",
+    "url": "https://github.com/mkhinini-motaz"
+  },
+  "homepage": "https://github.com/mkhinini-motaz/simulate",
+  "repository": "https://github.com/mkhinini-motaz/simulate",
+  "license": "MIT",
+  "keywords": [
+    "simulation",
+    "testing",
+    "end-to-end-testing",
+    "bots",
+    "marketplace",
+    "claude-code",
+    "agent-skills",
+    "qa"
+  ]
+}

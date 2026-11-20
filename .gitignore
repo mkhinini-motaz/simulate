@@ -1,0 +1,5 @@
+node_modules/
+**/runs/
+*.db
+*_sim*.json
+.DS_Store

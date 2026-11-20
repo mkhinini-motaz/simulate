@@ -1,0 +1,15 @@
+{
+  "name": "simulate-skill",
+  "description": "The simulate skill for Claude Code: simulation testing with bots, rules and failing tests.",
+  "owner": {
+    "name": "mkhinini-motaz",
+    "url": "https://github.com/mkhinini-motaz"
+  },
+  "plugins": [
+    {
+      "name": "simulate",
+      "source": "./",
+      "description": "Simulation testing for Claude Code: bots play your users against an isolated copy of your app, checks enforce the rules you confirm, and every finding becomes a failing test."
+    }
+  ]
+}
