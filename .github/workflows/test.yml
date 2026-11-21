@@ -15,3 +15,12 @@ jobs:
           node-version: ${{ matrix.node }}
       - run: python3 .github/check-skills.py skills/simulate
       - run: npm test
+      - name: Directory copy holds only allowed files, and its spec matches the core
+        run: |
+          bad=$(find directory -type f | grep -vE '\.(md|json|png)$|(^|/)(LICENSE|\.gitignore)$' || true)
+          test -z "$bad" || { echo "$bad"; exit 1; }
+          if grep -rIl '^#!' directory; then exit 1; fi
+          for f in coverage formats lessons profiles questions; do cmp skills/simulate/references/$f.md directory/skills/simulate/references/$f.md; done
+          cmp .claude-plugin/plugin.json directory/.claude-plugin/plugin.json
+          cmp .claude-plugin/icon.png directory/.claude-plugin/icon.png
+          cmp LICENSE directory/LICENSE

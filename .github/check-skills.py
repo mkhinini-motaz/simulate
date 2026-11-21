@@ -9,6 +9,7 @@ Also: when both plugin.json (Agent Plugins) and .claude-plugin/plugin.json exist
 Stdlib only. Exit 1 on any failure.
 """
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -74,6 +75,51 @@ def check_versions(root):
     return 0
 
 
+def check_directory(root):
+    """The code-free copy in directory/: allowed file types, no shebang, shared files identical, spec in step with the core."""
+    d = root / "directory"
+    if not d.is_dir():
+        return 0
+    errs = []
+    for here, _, names in os.walk(d):
+        for n in names:
+            f = Path(here) / n
+            rel = f.relative_to(root)
+            if f.suffix not in (".md", ".json", ".png") and n not in ("LICENSE", ".gitignore"):
+                errs.append(f"{rel}: file type not allowed in directory/")
+            elif f.suffix != ".png" and any(l.startswith("#!") for l in f.read_text(encoding="utf-8").split("\n")):
+                errs.append(f"{rel}: starts a line with #!")
+    for name in ("plugin.json", "icon.png"):
+        if (root / ".claude-plugin" / name).read_bytes() != (d / ".claude-plugin" / name).read_bytes():
+            errs.append(f"directory/.claude-plugin/{name} differs from the root copy")
+    if (root / "LICENSE").read_bytes() != (d / "LICENSE").read_bytes():
+        errs.append("directory/LICENSE differs from the root copy")
+    src = root / "skills" / "simulate" / "references"
+    dst = d / "skills" / "simulate" / "references"
+    for f in sorted(src.glob("*.md")):
+        if not (dst / f.name).is_file() or (dst / f.name).read_bytes() != f.read_bytes():
+            errs.append(f"directory reference {f.name} differs from skills/simulate/references/{f.name}")
+    cases = (dst / "core-cases.md").read_text(encoding="utf-8")
+    n = 0
+    for t in sorted((root / "skills" / "simulate" / "core" / "test").glob("*.test.ts")):
+        for m in re.finditer(r"^\s*test\(\s*(['\"`])((?:\\.|(?!\1).)*)\1\s*,", t.read_text(encoding="utf-8"), re.M):
+            title = re.sub(r"\\(.)", r"\1", m.group(2))
+            n += 1
+            for part in re.split(r"\$\{[^}]*\}", title):
+                if part and part not in cases:
+                    errs.append(f"{t.name}: test title not in core-cases.md: {title}")
+                    break
+    want = re.search(r"CORE_VERSION = '([^']+)'", (root / "skills/simulate/core/version.ts").read_text(encoding="utf-8")).group(1)
+    got = re.search(r"`CORE_VERSION`: `([^`]+)`", (dst / "core-spec.md").read_text(encoding="utf-8"))
+    if not got or got.group(1) != want:
+        errs.append(f"CORE_VERSION is {want!r} in version.ts but {got and got.group(1)!r} in core-spec.md")
+    for e in errs:
+        print(f"FAIL {e}")
+    if not errs:
+        print(f"ok   directory/ checks pass ({n} test titles found in core-cases.md)")
+    return 1 if errs else 0
+
+
 def main(argv):
     skills, agents, bucket = [], [], None
     bucket = skills
@@ -95,6 +141,7 @@ def main(argv):
         if not errs:
             print(f"ok   {path}")
     bad += check_versions(Path(__file__).resolve().parent.parent)
+    bad += check_directory(Path(__file__).resolve().parent.parent)
     return 1 if bad else 0
 
 
