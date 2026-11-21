@@ -1,7 +1,6 @@
 ---
 name: simulate
-description: Build and run a simulation of your product to test it end to end. Use when you want to find bugs a unit test misses (double submits, privacy leaks between roles, stuck states, money that does not add up) in a web app or API, including multi-sided marketplaces. Bots play your users against an isolated copy of the app, and checks enforce the rules you confirm. Lists every feature first and reports which ones the bots never reached. Modes are plan, every-scenario, scenario <name> and replay <run dir>. Writes a sim/ folder into the project and never touches production. Run it yourself with /simulate [mode] (or /simulate:simulate, if your plugin install lists it that way).
-disable-model-invocation: true
+description: Build and run a simulation of your product to test it end to end. It finds bugs a unit test misses (double submits, privacy leaks between roles, stuck states, money that does not add up) in a web app or API, including multi-sided marketplaces. Bots play your users against an isolated copy of the app, and checks enforce the rules you confirm. Lists every feature first and reports which ones the bots never reached. Modes are plan, every-scenario, scenario <name> and replay <run dir>. Writes a sim/ folder into the project and never touches production. Start it only when the user asks for it by name with /simulate [mode] (or /simulate:simulate, if the plugin install lists it that way), because it starts the app and runs long.
 ---
 
 # Simulate
