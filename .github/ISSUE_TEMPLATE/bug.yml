@@ -1,0 +1,27 @@
+name: Bug
+description: Something does not work.
+title: "Bug: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps or command
+      description: For example the mode you ran, or the npm script.
+  - type: input
+    id: env
+    attributes:
+      label: Node version, OS and Claude Code version
+  - type: checkboxes
+    id: private
+    attributes:
+      label: Check before sending
+      options:
+        - label: I removed secrets, real hostnames and private data from logs and output.
+          required: true

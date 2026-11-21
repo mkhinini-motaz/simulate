@@ -1,0 +1,63 @@
+name: Field report
+description: Share a run on your project. Wins, misses and runs that found nothing all count.
+title: "Field report: "
+labels: ["enhancement"]
+body:
+  - type: input
+    id: stack
+    attributes:
+      label: Stack
+      description: Language, framework and database. No company names needed.
+    validations:
+      required: true
+  - type: input
+    id: kind
+    attributes:
+      label: Kind of product
+      description: For example, marketplace, booking app, internal API.
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Mode you ran
+      options:
+        - plan
+        - every-scenario
+        - scenario
+        - replay
+    validations:
+      required: true
+  - type: textarea
+    id: found
+    attributes:
+      label: What the bots found
+      description: How many violations, and how many were product bugs, simulator bugs or known gaps.
+    validations:
+      required: true
+  - type: dropdown
+    id: reproduced
+    attributes:
+      label: Did a failing test in your own suite reproduce a finding?
+      options:
+        - Yes, for every product bug
+        - Yes, for some
+        - No
+        - Nothing was found
+    validations:
+      required: true
+  - type: textarea
+    id: coverage
+    attributes:
+      label: Coverage
+      description: The summary's second line (features reached, routes never called), and anything the detect step missed.
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: What was slow, confusing or wrong?
+  - type: checkboxes
+    id: private
+    attributes:
+      label: Check before sending
+      options:
+        - label: I removed company names, real users, hostnames, secrets and private data.
+          required: true

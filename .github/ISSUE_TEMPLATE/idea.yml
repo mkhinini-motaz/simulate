@@ -1,0 +1,22 @@
+name: Idea
+description: Propose a case list entry, a stack, a profile or a change.
+title: "Idea: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What would you add or change?
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why? Which bug or project made you want it?
+      description: Describe the bug class, not the product. Remove private details.
+  - type: checkboxes
+    id: claim
+    attributes:
+      label: Do you want to write it?
+      options:
+        - label: Yes, I will open the pull request.

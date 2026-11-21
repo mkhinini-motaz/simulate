@@ -75,6 +75,9 @@ npm run demo        # one every-scenario run; see the printed run folder (exits 
 - Faults and outbound calls trapped at a proxy: [Toxiproxy](https://github.com/Shopify/toxiproxy).
 - Related, and a good fit for web walkthroughs: [neonwatty/qa-skills](https://github.com/neonwatty/qa-skills).
 
+## Contributing
+See [CONTRIBUTING.md](CONTRIBUTING.md). Issues labelled [`good first issue`](https://github.com/mkhinini-motaz/simulate/labels/good%20first%20issue) are a good place to start. The easiest help is a field report from your own project.
+
 ## Credits
 Built with Claude Code. The lessons in `skills/simulate/references/lessons.md` come from running a simulator of this kind on a real multi-sided product.
 
