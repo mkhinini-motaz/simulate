@@ -59,6 +59,10 @@ The core is ESM TypeScript run by Node, so `sim/` gets its own `package.json` wi
 
 Then run `/simulate plan` in your project (an installed plugin may list the skill as `/simulate:simulate`). The skill follows the [Agent Skills](https://agentskills.io) format (`skills/simulate/SKILL.md`), so other agents that read that format can load it too.
 
+## Use with other agents
+
+The skill is a `SKILL.md` folder, a format Codex, Cursor, GitHub Copilot, Gemini CLI and OpenCode also load. All five read a project's `.agents/skills/` folder, so copying `skills/simulate` there should work. The core still needs Node 24 or later. I have only tested it in Claude Code.
+
 ## The demo
 `demo/` is a small marketplace API with six planted bugs, listed in `demo/PLANTED.md`, and the simulator the skill would generate for it in `demo/sim/`.
 
