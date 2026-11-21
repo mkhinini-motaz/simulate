@@ -33,7 +33,7 @@ Format: https://agentskills.io/specification. `.github/check-skills.py` checks i
 
 ## Bump the version
 
-When you change anything under `skills/`, raise `version` in `.claude-plugin/plugin.json`. Installed copies update only when the version rises.
+When you change anything under `skills/`, raise `version` in both `.claude-plugin/plugin.json` and `plugin.json`; `check-skills.py` fails when they differ. Installed copies update only when the version rises.
 
 ## Pull request process
 

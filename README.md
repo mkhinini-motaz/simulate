@@ -63,6 +63,8 @@ Then run `/simulate plan` in your project (an installed plugin may list the skil
 
 The skill is a `SKILL.md` folder, a format Codex, Cursor, GitHub Copilot, Gemini CLI and OpenCode also load. All five read a project's `.agents/skills/` folder, so copying `skills/simulate` there should work. The core still needs Node 24 or later. I have only tested it in Claude Code.
 
+The root `plugin.json` follows the [Agent Plugins](https://github.com/agentplugins/agent-plugins-spec/blob/main/spec/1.1.0.md) standard (1.1.0), so clients that load it can install this as a plugin. The list at https://agent-plugins.org/compatible-clients names Cursor, GitHub Copilot, ChatGPT & Codex, Kiro, Hermes Agent, OpenClaw, Grok Bot, NanoClaw, OpenHands, Perplexity Computer and Google Antigravity. I have not tested it in any of them, since none is installed here. Claude Code keeps using `.claude-plugin/`.
+
 ## The demo
 `demo/` is a small marketplace API with six planted bugs, listed in `demo/PLANTED.md`, and the simulator the skill would generate for it in `demo/sim/`.
 

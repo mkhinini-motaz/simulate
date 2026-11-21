@@ -5,8 +5,10 @@ Usage: check-skills.py SKILL.md_or_folder ... [--agents FILE ...]
 Skills: name is 1-64 chars of a-z, 0-9, single hyphens, and equals the folder name;
 description is 1-1024 chars; the file is at most 500 lines.
 --agents: each file needs a non-empty description, and name equals the file name.
+Also: when both plugin.json (Agent Plugins) and .claude-plugin/plugin.json exist, their versions must match.
 Stdlib only. Exit 1 on any failure.
 """
+import json
 import re
 import sys
 from pathlib import Path
@@ -60,6 +62,18 @@ def check_agent(path):
     return errs
 
 
+def check_versions(root):
+    a, b = root / "plugin.json", root / ".claude-plugin" / "plugin.json"
+    if not (a.is_file() and b.is_file()):
+        return 0
+    va, vb = (json.loads(f.read_text(encoding="utf-8")).get("version") for f in (a, b))
+    if va != vb:
+        print(f"FAIL plugin.json version {va!r} differs from .claude-plugin/plugin.json {vb!r}")
+        return 1
+    print(f"ok   plugin.json versions match ({va})")
+    return 0
+
+
 def main(argv):
     skills, agents, bucket = [], [], None
     bucket = skills
@@ -80,6 +94,7 @@ def main(argv):
         bad += bool(errs)
         if not errs:
             print(f"ok   {path}")
+    bad += check_versions(Path(__file__).resolve().parent.parent)
     return 1 if bad else 0
 
 
