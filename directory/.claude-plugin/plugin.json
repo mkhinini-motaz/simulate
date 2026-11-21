@@ -1,6 +1,6 @@
 {
   "name": "simulate",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Simulation testing for Claude Code: bots play your users against an isolated copy of your app, checks enforce the rules you confirm, and every finding becomes a failing test.",
   "author": {
     "name": "mkhinini-motaz",

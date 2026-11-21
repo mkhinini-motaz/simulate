@@ -38,6 +38,10 @@ The full version, with the core as ready-made code and a demo app, installs with
 
 Source and issues: https://github.com/mkhinini-motaz/simulate. MIT license.
 
+## Privacy
+
+[Privacy policy](https://github.com/mkhinini-motaz/simulate/blob/main/PRIVACY.md): the author runs no server and collects no data.
+
 ## Support
 
 Questions and bugs: open an issue at https://github.com/mkhinini-motaz/simulate/issues. Security problems: report them privately from the repository's Security tab (private vulnerability reporting), not in a public issue.
