@@ -153,19 +153,19 @@ One test per pair, 22 in all: `name` is each of `NODE_ENV`, `APP_ENV`, `RAILS_EN
 ### live secret pattern ${label} is refused
 One test per row, 11 in all. Input `{ DB_NAME: 'shop_sim', SOME_KEY: value }`; refused with `SOME_KEY`. Build each value from two or more string pieces joined at run time, so secret scanners do not flag the test file.
 
-| label (title) | value |
+| label (title) | value, as the pieces to join |
 |---|---|
-| `sk_live_` | `sk_live_abc123` |
-| `rk_live_` | `rk_live_abc123` |
-| `pk_live_` | `pk_live_abc123` |
-| `AKIA` | `AKIAABCDEFGHIJKLMNOP` |
-| `xox` | `xoxb-1234-abcd` |
-| `ghp_` | `ghp_abcdef` |
-| `gho_` | `gho_abcdef` |
-| `github_pat_` | `github_pat_abcdef` |
-| `SendGrid` | `SG.abcdefghijklmnop.qrst` |
+| `sk_live_` | `sk_` + `li` + `ve_` + `abc123` |
+| `rk_live_` | `rk_` + `li` + `ve_` + `abc123` |
+| `pk_live_` | `pk_` + `li` + `ve_` + `abc123` |
+| `AKIA` | `AK` + `IA` + `ABCDEFGHIJKLMNOP` |
+| `xox` | `xo` + `xb-1234-abcd` |
+| `ghp_` | `gh` + `p_abcdef` |
+| `gho_` | `gh` + `o_abcdef` |
+| `github_pat_` | `github` + `_pat_abcdef` |
+| `SendGrid` | `S` + `G.abcdefghijklmnop.qrst` |
 | `AIza` | `AIza` followed by 35 times `A` |
-| `PRIVATE` | `-----BEGIN RSA PRIVATE KEY-----` |
+| `PRIVATE` | `-----BEGIN RSA ` + `PRIVATE KEY-----` |
 
 ### forbidden host in any value is refused
 Input `{ DB_NAME: 'shop_sim', API: 'https://API.RealShop.com/v1' }` with `forbiddenHosts: ['realshop.com']`: refused with `realshop.com`.
