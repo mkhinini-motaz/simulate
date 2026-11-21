@@ -1,12 +1,13 @@
 # Core cases
 
-Every test the core must pass, from `references/core-spec.md`. A rebuilt core is accepted only when all of them pass. Write each case as a `node:test` test in `sim/core-test/`, with the exact title below (`import { test } from 'node:test'`, `import assert from 'node:assert/strict'`). One file per core file: `egress.test.ts`, `features.test.ts`, `guard.test.ts`, `oracle.test.ts` (also holds the rules and outbox cases), `run.test.ts` (also holds the rng, outbox, rules and runner cases). Tests import from `../core/<file>.ts`. A title that contains `${...}` is one test registered in a loop: write the loop and fill the title from the table.
+Every test the core must pass, from `references/core-spec.md`. A rebuilt core is accepted only when all of them pass. Write each case as a `node:test` test in `sim/core-test/`, with the exact title below (`import { test } from 'node:test'`, `import assert from 'node:assert/strict'`). One file per core file: `egress.test.ts`, `features.test.ts`, `guard.test.ts`, `oracle.test.ts` (also holds exactly two more cases: `parseRules reads RULES.md lines` and `readOutbox reads JSON lines and tolerates a missing file`), `rng.test.ts` (the pinned-output case), `run.test.ts` (every other case under its heading below: the shuffle case, the outbox key-mapping case, the malformed-rule case and the runner cases). Each case is written once, in the file named by its heading. Tests import from `../core/<file>.ts`. A title that contains `${...}` is one test registered in a loop: write the loop and fill the title from the table.
 
 Conventions used below:
 - `rules1` is `[{ id: 'r1', text: 'Rule one', status: 'confirmed' }]`.
 - `rules3` is `[{ id: 'a', text: 'confirmed rule', status: 'confirmed' }, { id: 'b', text: 'observed rule', status: 'observed' }, { id: 'g', text: 'gap rule', status: 'confirmed', gap: true }]`.
+- Cases that expect the commit `unknown` assume the system temp folder is not inside a git repository.
 - `tmp()` makes a new temporary folder (`mkdtempSync` in the system temp folder) and removes it after the file's tests (the `after` hook of `node:test`).
-- `fakeApp()` starts an HTTP server on `127.0.0.1`, port 0, that answers every request with the body `{"ok":true}`, and returns `{ baseUrl, stop }` where `stop` closes the server.
+- `fakeApp()` starts an HTTP server on `127.0.0.1`, port 0, that answers every request with the body `{"ok":true}` and content type `application/json`, and returns `{ baseUrl, stop }` where `stop` closes the server.
 - `one(over, scenarios)` builds run options: root `tmp()`, mode `every-scenario`, seed 3, `rules1`, scenarios (default one scenario `a` that does nothing), `start` = `fakeApp`, `envOpts` = `{ allow: [], fakes: { DB_NAME: 'x_sim' }, dbVar: 'DB_NAME', copyDir: tmp() }`; keys in `over` replace these.
 - In guard cases, `check(env, forbiddenHosts?)` is `checkEnv(env, { dbVar: 'DB_NAME', forbiddenHosts })`; "refused with W" means `ok` is false and the reasons joined with newlines match the pattern W; `good` is `{ DB_NAME: 'shop_sim' }`.
 
@@ -257,6 +258,11 @@ The first object has no `gap` key (deep equality).
 
 ### readOutbox reads JSON lines and tolerates a missing file
 `readOutbox('/nonexistent/outbox.jsonl')` equals `[]`.
+
+## rng.test.ts
+
+### seeded(1) gives the known mulberry32 sequence
+The first five `next()` values of `seeded(1)` equal, exactly: `0.6270739405881613`, `0.002735721180215478`, `0.5274470399599522`, `0.9810509674716741`, `0.9683778982143849`. This pins the generator, not only repeatability.
 
 ## run.test.ts
 
