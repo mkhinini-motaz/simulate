@@ -51,7 +51,9 @@ function dbOf(value: string): { name: string; hosts: string[] } {
     const u = new URL(value);
     if (u.protocol === 'sqlite:' || u.protocol === 'file:') return { name: bare(u.pathname), hosts: [] };
     // libpq lets `?host=` override the authority, so it is a host to check too.
-    const hosts = [u.hostname, u.searchParams.get('host') ?? ''].filter(Boolean).map((h) => h.toLowerCase());
+    // An empty hostname with no ?host= is kept as '' so checkEnv can refuse it.
+    const viaParam = u.searchParams.get('host');
+    const hosts = [u.hostname, viaParam ?? ''].filter((h, i) => h || (i === 0 && !viaParam)).map((h) => h.toLowerCase());
     return { name: bare(u.pathname.replace(/^\/+/, '').split('/')[0]), hosts };
   } catch {
     return { name: value, hosts: [] };
@@ -67,21 +69,33 @@ export function checkEnv(
 ): Verdict {
   const reasons: string[] = [];
   const raw = env[opts.dbVar];
+  let hosts: string[] = [];
   if (!raw) {
     reasons.push(`${opts.dbVar} is missing: the database name must be set and end in _sim`);
   } else {
-    const { name, hosts } = dbOf(raw);
+    const db = dbOf(raw);
+    hosts = db.hosts;
+    const name = db.name;
     if (!name.endsWith('_sim')) reasons.push(`database name "${name}" (${opts.dbVar}) does not end in _sim`);
     const bad = name.match(BAD_WORD)?.[2].toLowerCase();
     if (bad) reasons.push(`database name "${name}" contains "${bad}"`);
-    for (const v of HOST_VARS) if (env[v]) hosts.push(env[v]!.trim().toLowerCase());
-    const listed = (opts.dbHosts ?? []).map((h) => h.toLowerCase());
-    for (const host of hosts) {
-      const hostBad = host.match(BAD_WORD)?.[2].toLowerCase();
-      if (hostBad) reasons.push(`database host "${host}" contains "${hostBad}"`);
-      if (!LOOPBACK.includes(host) && !listed.includes(host)) {
-        reasons.push(`database host "${host}" is not local; list it in dbHosts only if it is the copy's own server`);
-      }
+  }
+  for (const v of HOST_VARS) {
+    if (env[v] === undefined) continue;
+    const h = env[v]!.trim().toLowerCase();
+    if (h) hosts.push(h);
+    else reasons.push(`${v} is empty: unset it or set an explicit local host`);
+  }
+  const listed = (opts.dbHosts ?? []).map((h) => h.toLowerCase());
+  for (const host of hosts) {
+    if (!host) {
+      reasons.push(`database URL has no host: set an explicit local host (localhost or 127.0.0.1)`);
+      continue;
+    }
+    const hostBad = host.match(BAD_WORD)?.[2].toLowerCase();
+    if (hostBad) reasons.push(`database host "${host}" contains "${hostBad}"`);
+    if (!LOOPBACK.includes(host) && !listed.includes(host)) {
+      reasons.push(`database host "${host}" is not local; list it in dbHosts only if it is the copy's own server`);
     }
   }
   for (const name of ENV_NAMES) {
@@ -118,11 +132,16 @@ export function checkCopy(dir: string): Verdict {
       if (lstatSync(path).isDirectory()) walk(path);
     }
   };
-  walk(dir);
+  try {
+    walk(dir);
+  } catch (e) {
+    reasons.push(`cannot read the copy at ${dir}: ${(e as Error).message}`);
+  }
   return { ok: reasons.length === 0, reasons };
 }
 
 export function assertSafe(...verdicts: Verdict[]): void {
   const reasons = verdicts.flatMap((v) => v.reasons);
+  if (!reasons.length && verdicts.some((v) => !v.ok)) reasons.push('a safety check failed without giving a reason');
   if (reasons.length) throw new Error(`simulate refused to start:\n- ${reasons.join('\n- ')}`);
 }

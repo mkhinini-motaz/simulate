@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { assertSafe, buildEnv, checkCopy, checkEnv } from '../guard.ts';
@@ -129,4 +129,40 @@ test('separate host variables and ?host= are checked like a URL host', () => {
 test('a malformed % in the name is a refusal, not a throw; dbHosts match any case', () => {
   assert.equal(checkEnv({ DB: 'shop%' }, { dbVar: 'DB' }).ok, false);
   assert.ok(checkEnv({ URL: 'postgres://u:p@DB/shop_sim' }, { dbVar: 'URL', dbHosts: ['DB'] }).ok);
+});
+
+test('assertSafe throws on a verdict that is not ok even with no reasons', () => {
+  assert.throws(() => assertSafe({ ok: false, reasons: [] }), /simulate refused to start/);
+});
+
+test('an empty host variable is refused with a fix', () => {
+  const v = checkEnv({ DB_NAME: 'shop_sim', DB_HOST: '' }, { dbVar: 'DB_NAME' });
+  assert.equal(v.ok, false);
+  assert.match(v.reasons.join('\n'), /DB_HOST is empty[\s\S]*unset it or set an explicit local host/);
+});
+
+test('host variables are checked even when the database variable is missing', () => {
+  const v = checkEnv({ DB_HOST: 'db.internal' }, { dbVar: 'DB_NAME' });
+  assert.match(v.reasons.join('\n'), /missing[\s\S]*db\.internal/);
+});
+
+test('a URL with an empty hostname is refused', () => {
+  const v = checkEnv({ URL: 'postgres:///x_sim' }, { dbVar: 'URL' });
+  assert.equal(v.ok, false);
+  assert.match(v.reasons.join('\n'), /no host[\s\S]*explicit local host/);
+});
+
+test('checkCopy returns a reason for a file or an unreadable folder instead of throwing', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'copy-'));
+  writeFileSync(join(dir, 'afile'), '');
+  const v = checkCopy(join(dir, 'afile'));
+  assert.equal(v.ok, false);
+  assert.match(v.reasons.join('\n'), /cannot read/);
+  mkdirSync(join(dir, 'locked'));
+  chmodSync(join(dir, 'locked'), 0o000);
+  try {
+    assert.equal(checkCopy(dir).ok, false);
+  } finally {
+    chmodSync(join(dir, 'locked'), 0o700);
+  }
 });

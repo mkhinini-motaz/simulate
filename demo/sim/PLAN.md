@@ -1,7 +1,7 @@
 # Plan
 
 Base: 0000000 (example; use a real commit hash), 2026-11-20.
-Core: 0.1.0. Database: shop_sim (env DB_NAME). Ports: a free port per run.
+Core: 0.1.1. Database: shop_sim (env DB_NAME). Ports: a free port per run.
 Environment allowlist: none. Fakes: DB_NAME, DEMO_FIXED, OUTBOX_PATH (set by the runner).
 
 ## Scenarios

@@ -85,3 +85,14 @@ test('inventoryDiff agrees with parseFeatures on Rails (.:format) paths', () => 
 test('a bullet that is not an HTTP method is not a route', () => {
   assert.throws(() => parseFeatures('## o\n- `a` A\n  - see notes'), /cannot read/);
 });
+
+test('parseFeatures accepts CRLF line endings', () => {
+  const md = '## orders\r\n- `place` Place an order (source: x)\r\n  - POST /orders\r\n  - OUTBOX mail\r\n- `skipme` skip: no (source: y)\r\n';
+  const f = parseFeatures(md);
+  assert.deepEqual(f.map((x) => x.id), ['place', 'skipme']);
+  assert.equal(f[0].text, 'Place an order (source: x)');
+  assert.equal(f[0].area, 'orders');
+  assert.deepEqual(f[0].routes, [{ method: 'POST', path: '/orders' }]);
+  assert.equal(f[0].evidence.length, 1);
+  assert.equal(f[1].skip, 'no (source: y)');
+});

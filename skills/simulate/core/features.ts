@@ -28,7 +28,7 @@ export function parseFeatures(markdown: string): Feature[] {
   let n = 0;
   const out: Feature[] = [];
   let area = 'general';
-  for (const line of markdown.split('\n')) {
+  for (const line of markdown.split(/\r?\n/)) {
     n++;
     if (line.startsWith('## ')) area = line.slice(3).trim();
     const f = line.match(FEATURE);

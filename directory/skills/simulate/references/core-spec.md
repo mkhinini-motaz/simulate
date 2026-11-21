@@ -1,6 +1,6 @@
 # Core spec
 
-`CORE_VERSION`: `0.1.0`
+`CORE_VERSION`: `0.1.1`
 
 This file describes the simulator core, in words, so that Claude can build it into `sim/core/` of a project. The skill's hard rules depend on this core being exact. Build what is written here, nothing more, nothing less. `references/core-cases.md` holds the test cases the rebuilt core must pass.
 
@@ -14,7 +14,7 @@ This file describes the simulator core, in words, so that Claude can build it in
 
 ## version.ts
 
-Exports `CORE_VERSION`, a string constant, `'0.1.0'`. The runner writes it to `metrics.json`. `PLAN.md` records it on its `Core:` line.
+Exports `CORE_VERSION`, a string constant, `'0.1.1'`. The runner writes it to `metrics.json`. `PLAN.md` records it on its `Core:` line.
 
 ## rng.ts
 
@@ -126,15 +126,15 @@ Constants:
 Reading the database variable `dbVar`:
 - `dbOf(value)` gives a database name and a list of hosts.
   - A value with no `:` in it, or one that starts with a drive letter, colon and a slash or backslash (`C:\data\x`), is a plain name or file path: the name is its last `/` segment (after percent-decoding it; when decoding fails keep the raw text), with a trailing `.sqlite`, `.sqlite3` or `.db` removed. No hosts.
-  - Otherwise parse it as a URL. For the schemes `sqlite:` and `file:` the name comes from the URL path the same way as above, no hosts. For any other scheme the hosts are the URL's hostname and the value of the `host` query parameter (when present), both lowercased, empty ones dropped (libpq lets `?host=` override the authority). The name is the first path segment after removing leading slashes, treated as above.
+  - Otherwise parse it as a URL. For the schemes `sqlite:` and `file:` the name comes from the URL path the same way as above, no hosts. For any other scheme the hosts are the URL's hostname and the value of the `host` query parameter (when present), both lowercased; an empty `host` parameter is dropped, and an empty hostname is dropped only when a non-empty `host` parameter is present (libpq lets `?host=` override the authority). The name is the first path segment after removing leading slashes, treated as above.
   - When URL parsing throws, the name is the whole value and there are no hosts.
-  - The suffix removal and the percent-decoding apply to every name, also for non-sqlite URLs (`postgres://h/shop_sim.db` gives `shop_sim`). When the URL has an empty hostname (`postgres:///shop_sim`) and no `host` parameter, the host list is empty, so the URL itself triggers no host refusal. A name that decodes to the empty string fails the `_sim` check as usual.
+  - The suffix removal and the percent-decoding apply to every name, also for non-sqlite URLs (`postgres://h/shop_sim.db` gives `shop_sim`). When the URL has an empty hostname (`postgres:///shop_sim`) and no `host` parameter, the host list holds one empty host, which check 4 refuses. A name that decodes to the empty string fails the `_sim` check as usual.
 
 Checks, in this order, collecting reasons:
-1. `dbVar` unset or empty: `${dbVar} is missing: the database name must be set and end in _sim`. The database checks (2 to 4) then do not run, host variables included. Checks 5 and 6 still run.
+1. `dbVar` unset or empty: `${dbVar} is missing: the database name must be set and end in _sim`. Checks 2 and 3 then do not run. Check 4 still runs, on the host variables alone, so every reason shows at once. Checks 5 and 6 still run.
 2. The name does not end in `_sim`: `database name "${name}" (${dbVar}) does not end in _sim`.
 3. The name matches the bad-word pattern: `database name "${name}" contains "${word}"`.
-4. Hosts: the hosts from `dbOf`, plus the trimmed lowercase value of each host variable whose value in `env` is not undefined and not the empty string (an empty string is skipped, like a missing one; a value of only spaces is kept, becomes the empty host after trimming, is not loopback and is refused). Host variables are read only inside this step, so they are not read at all when check 1 refused (`dbVar` missing). For each host: when it matches the bad-word pattern, `database host "${host}" contains "${word}"`; and when it is not loopback and not in `dbHosts` (compared in lowercase), `database host "${host}" is not local; list it in dbHosts only if it is the copy's own server`. Both can apply to one host: a host with `prod` in its name is refused even when it is listed.
+4. Hosts: the hosts from `dbOf` (none when `dbVar` was missing), plus the trimmed lowercase value of each host variable whose value in `env` is not undefined. A host variable that is empty or only spaces gives `${var} is empty: unset it or set an explicit local host` and adds no host. An empty host from `dbOf` (a URL with an empty hostname) gives `database URL has no host: set an explicit local host (localhost or 127.0.0.1)`, with no other host check. For every other host: when it matches the bad-word pattern, `database host "${host}" contains "${word}"`; and when it is not loopback and not in `dbHosts` (compared in lowercase), `database host "${host}" is not local; list it in dbHosts only if it is the copy's own server`. Both can apply to one host: a host with `prod` in its name is refused even when it is listed.
 5. For each environment-name variable: a value that, trimmed and lowercased, is `production` or `prod` gives `${name}=${value} is a production setting` (value as set).
 6. For every entry of `env` whose value is not undefined, in entry order: each secret pattern that matches the value gives `${key} holds a live secret (${label})`; then each non-empty `forbiddenHosts` entry that appears in the value (case-insensitive) gives `${key} points at forbidden host ${host}`.
 
@@ -144,12 +144,12 @@ Checks that a copy of the project carries no real secrets.
 - A directory that does not exist gives not ok with the single reason `copy directory ${dir} does not exist`.
 - Otherwise it walks every folder. For each entry (file or folder): when its name is a real env file, add `${path} is a real env file; remove it from the copy`, where `path` is the folder path joined with the entry name. A real env file is any name that is `.env` or starts with `.env.`, except `.env.example` and `.env.sim`.
 - The order inside one entry: first the env-file name check (so a file or folder named like a real env file is reported even when it is also skipped, and a real-env-named folder is reported and then walked into), then the skip test, then the directory test. A skipped name (`node_modules`, `vendor`, `.git*`) is never walked, but is still checked by name first (a `.git*` name cannot be a real env file, so this only matters in theory). Entries come in the order `readdirSync` returns them, depth first, so the reasons follow that order.
-- A folder that cannot be read makes `readdirSync` throw, and the error propagates out of `checkCopy` (it is not turned into a reason); the runner then throws before the app starts. The same happens when `dir` exists but is a file.
+- A folder that cannot be read, or a `dir` that exists but is a file, makes `readdirSync` throw; `checkCopy` catches it and returns not ok with the reason `cannot read the copy at ${dir}: ${error message}`. Reasons found before the failure are kept.
 - It does not descend into `node_modules`, `vendor` or any name starting with `.git`. It uses `lstat`, so a symlink is never followed and a broken symlink cannot throw. Only real directories are walked into.
 
 ### assertSafe
 
-Takes any number of verdicts, joins all their reasons in order. When there is at least one, throws an `Error` whose message is `simulate refused to start:` followed by a newline and the reasons, each on its own line starting with `- `. Otherwise returns. Only `reasons` counts: a verdict with `ok: false` and an empty `reasons` list adds nothing and does not make `assertSafe` throw (a verdict built by hand is trusted to follow the rule above).
+Takes any number of verdicts, joins all their reasons in order. When there is at least one, throws an `Error` whose message is `simulate refused to start:` followed by a newline and the reasons, each on its own line starting with `- `. Otherwise returns. A verdict with `ok: false` and no reasons also refuses: when no verdict gave a reason but one is not ok, the single reason is `a safety check failed without giving a reason`.
 
 ## oracle.ts
 
@@ -217,7 +217,7 @@ export function coverageLine(c: Coverage): string;
 
 Reads line by line, counting lines from 1. The current area starts as `general`; a line starting with `## ` sets it to the rest of the line, trimmed.
 - Feature line: starts with a dash, space, an id in backticks (lowercase letters, digits, hyphens), a space, and the text (rest of the line). The line is matched as it is, not trimmed, and must start at column 0. The text must have at least one character after the single space, so `- `a` ` with nothing after the space is not a feature line; the line is then ignored, since it is not indented. The text is not trimmed. It starts a new feature `{ id, area, text, routes: [], evidence: [] }`. When the text starts with `skip: ` followed by at least one character, the feature also gets `skip` set to what follows `skip: ` (text stays the whole text). `skip:` with nothing after it, or `skip: ` with only the space, is plain text and gives no `skip`.
-- Line endings: the file is split on `\n` only. A `\r` stays at the end of each line, and `.` in the feature pattern does not match it, so on a file with CRLF line endings no feature line matches, and the first indented route or evidence line then fails with the `cannot read` error. Evidence and route lines tolerate it (their trailing whitespace pattern takes the `\r`), and so does the `## ` area line (the rest is trimmed). The core does not convert CRLF.
+- Line endings: the file is split on `\n` or `\r\n`, so a CRLF file parses like an LF one and no `\r` reaches the line patterns.
 - `## ` is recognised only at column 0 (a line starting with `## `, not an indented one). "Indented" for evidence and route lines means one or more whitespace characters of any kind (spaces or tabs) before the dash.
 - Evidence line: indented, a dash, space, `OUTBOX` or `EVENT` (uppercase only), a space, one word (no spaces), nothing after but spaces. It is added to the latest feature as `{ kind, name }`. The explanations in the format sample above are not part of the line: the parser accepts only `  - OUTBOX mail`.
 - Route line: indented, a dash, space, one or more HTTP methods separated by `|` (`GET`, `HEAD`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`, `ANY`; case-insensitive), a space, a path (no spaces), nothing after but spaces. Each method is uppercased and the path is normalised: a trailing `(.:format)` removed (Rails), leading slashes removed, then one `/` put in front (Laravel paths lack the slash). One route is added to the latest feature per method (`GET|HEAD api/items` gives two routes).

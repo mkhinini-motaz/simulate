@@ -72,7 +72,7 @@ Routes in the framework's list: 42. Routes below: 42.
 
 Base: 3f2a91c, 2026-11-20.
 Update: 2026-11-27: new returns, refund-partial; changed double-checkout.
-Core: 0.1.0. Database: shop_sim (env DB_NAME). Ports: 4810 app.
+Core: 0.1.1. Database: shop_sim (env DB_NAME). Ports: 4810 app.
 Environment allowlist: DB_NAME, PORT. Fakes: OUTBOX_PATH, MAIL_DRIVER=log, SMS_DRIVER=log.
 
 ## Scenarios

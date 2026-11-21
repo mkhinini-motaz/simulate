@@ -107,6 +107,9 @@ Features from `## o`, `- \`orders\` O`, `  - GET /orders/:id(.:format)`. `invent
 ### a bullet that is not an HTTP method is not a route
 `parseFeatures` of `## o`, `- \`a\` A`, `  - see notes` (joined with newlines) throws an error matching `cannot read`.
 
+### parseFeatures accepts CRLF line endings
+Input (every line ends in `\r\n`): `## orders`, `` - `place` Place an order (source: x) ``, `  - POST /orders`, `  - OUTBOX mail`, `` - `skipme` skip: no (source: y) ``. Result: ids `place`, `skipme`; first feature has area `orders`, text `Place an order (source: x)`, routes `[{ method: 'POST', path: '/orders' }]`, one evidence entry; the second has `skip` equal to `no (source: y)`.
+
 ## guard.test.ts
 
 ### a clean sim env passes
@@ -215,6 +218,21 @@ New temp folder `dir`: create folders `apps/api/config` and `vendor/x`; an empty
 ### a malformed % in the name is a refusal, not a throw; dbHosts match any case
 - `checkEnv({ DB: 'shop%' }, { dbVar: 'DB' })` is not ok (and does not throw).
 - `checkEnv({ URL: 'postgres://u:p@DB/shop_sim' }, { dbVar: 'URL', dbHosts: ['DB'] })` is ok.
+
+### assertSafe throws on a verdict that is not ok even with no reasons
+`assertSafe({ ok: false, reasons: [] })` throws an error matching `simulate refused to start`.
+
+### an empty host variable is refused with a fix
+`checkEnv({ DB_NAME: 'shop_sim', DB_HOST: '' }, { dbVar: 'DB_NAME' })` is not ok; reasons joined match `DB_HOST is empty[\s\S]*unset it or set an explicit local host`.
+
+### host variables are checked even when the database variable is missing
+`checkEnv({ DB_HOST: 'db.internal' }, { dbVar: 'DB_NAME' })`: reasons joined match `missing[\s\S]*db\.internal`.
+
+### a URL with an empty hostname is refused
+`checkEnv({ URL: 'postgres:///x_sim' }, { dbVar: 'URL' })` is not ok; reasons joined match `no host[\s\S]*explicit local host`.
+
+### checkCopy returns a reason for a file or an unreadable folder instead of throwing
+Temp folder `dir` with a file `afile`. `checkCopy(dir/afile)` is not ok and its reasons joined match `cannot read`. Then create a subfolder `locked`, set its mode to `000`: `checkCopy(dir)` is not ok (mode restored to `700` afterwards).
 
 ## oracle.test.ts
 
