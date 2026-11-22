@@ -4,6 +4,20 @@ A Claude Code skill that builds a simulation of your product and uses it to find
 
 Status: experimental. It is proven on the demo app in this repo, and it was tried privately on one real multi-sided product: on a commit from before two of its fixed bugs, it re-found both, each confirmed by a failing test. Reports from other projects are welcome as issues.
 
+```mermaid
+flowchart LR
+  D["Detect<br/>routes, roles, money,<br/>senders"] --> Q["Ask<br/>what must never happen"]
+  Q --> R["Rules<br/>each with its source"]
+  R --> P["Plan<br/>you approve it"]
+  P --> B["Build<br/>fixed safety core +<br/>your scenarios"]
+  B --> X["Run<br/>bots against an<br/>isolated copy"]
+  X --> T{"Triage"}
+  T -- "product bug" --> F["Failing test<br/>in your suite"]
+  F --> FX["Fix"]
+  FX -- "replay the same seed" --> X
+  T -- "simulator bug or known gap" --> R
+```
+
 ## How it works
 1. **Detect.** Claude reads your code and docs: the stack, the start command, the roles, the entities and their states, money fields, and every place that sends SMS, mail, push, payments or webhooks. It lists every feature in `sim/FEATURES.md`: all routes from the framework's own route list, plus scheduled jobs, webhooks, realtime channels, admin screens and locale files.
 2. **Ask.** A fixed set of "must never happen" questions (privacy between users, once means once, totals agree, final is final, nothing waits forever), then only the gaps the code could not answer. At most 7 questions before the plan, and up to 8 more with it, each with a suggested answer.
@@ -35,7 +49,14 @@ The core refuses to start, with a reason for each refusal, when:
 
 The same checks run on what your start script adds to the environment.
 
-The app runs with an environment built from an allowlist plus fake values, never your shell's environment. The app gets a fresh `HOME` inside the run folder, so tools that look up `HOME` (most SDKs and CLIs) do not find your `~/.aws`, `~/.netrc` and the like. A process can still find the real home through the user database (`os.userInfo()`, Python `pwd`), so the container is the full wall. List `HOME` in the plan's `allow` only when it must have the real one. Senders write to an outbox file. Outbound HTTP goes through a local trap that refuses it and fails the run. An app that ignores proxy settings is not caught by the trap, so for the strongest wall run the whole simulator (runner, copy and database) in one container with `--network none`. Fake users get example.com emails and fictional phone numbers.
+What the app under test gets:
+
+- The app runs with an environment built from an allowlist plus fake values, never your shell's environment.
+- The app gets a fresh `HOME` inside the run folder, so tools that look up `HOME` (most SDKs and CLIs) do not find your `~/.aws`, `~/.netrc` and the like.
+- A process can still find the real home through the user database (`os.userInfo()`, Python `pwd`), so the container is the full wall. List `HOME` in the plan's `allow` only when it must have the real one.
+- Senders write to an outbox file. Outbound HTTP goes through a local trap that refuses it and fails the run.
+- An app that ignores proxy settings is not caught by the trap, so for the strongest wall run the whole simulator (runner, copy and database) in one container with `--network none`.
+- Fake users get example.com emails and fictional phone numbers.
 
 ## Install
 Requirements: Claude Code, and Node 24 or later for the core (the app under test can be in any language, since the bots talk to it over HTTP). The core is tested on Node 25, and `.github/workflows/test.yml` runs Node 24 and 25. The runner sets `NODE_USE_ENV_PROXY` in the app's environment, so a Node app's own `fetch` goes through the egress trap only on a Node that honours that variable.
@@ -72,6 +93,21 @@ The root `plugin.json` follows the [Agent Plugins](https://github.com/agentplugi
 npm test            # core tests, plus proof that an every-scenario run finds all six bugs and raises no false alarm once they are fixed
 npm run demo        # one every-scenario run; see the printed run folder (exits 1: the planted bugs are on)
 ```
+
+A run writes `summary.md` in its run folder. The start of the one from 20 November 2026, in [`demo/sim/runs/`](demo/sim/runs/):
+
+```
+Untriaged violations: 9 · known gaps: 1 · observed-only: 1 · passes: 19
+Coverage: features exercised 9 of 11 · skipped: 1 · not exercised: 0 · no route: 1 · routes called 11 of 12
+
+## FAIL: no-phone-to-courier
+
+A courier never sees the customer's phone number (source: must-never-happen question 4).
+
+- courier offer o2: offer shows the customer phone: {"orderId":"o2","pickup":"shop","totalCents":2250,"customerPhone":"+15551411150"}
+```
+
+Each of the six planted bugs shows up as one failed rule, and each rule names where it came from: a doc, or your answer to one of the questions.
 
 ## Ideas borrowed
 - Replay from a seed: [TigerBeetle VOPR](https://github.com/tigerbeetle/tigerbeetle/blob/main/docs/internals/vopr.md), [FoundationDB simulation testing](https://apple.github.io/foundationdb/testing.html).
