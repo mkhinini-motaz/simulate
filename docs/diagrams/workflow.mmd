@@ -1,0 +1,11 @@
+flowchart LR
+  D["Detect<br/>routes, roles, money,<br/>senders"] --> Q["Ask<br/>what must never happen"]
+  Q --> R["Rules<br/>each with its source"]
+  R --> P["Plan<br/>you approve it"]
+  P --> B["Build<br/>fixed safety core +<br/>your scenarios"]
+  B --> X["Run<br/>bots against an<br/>isolated copy"]
+  X --> T{"Triage"}
+  T -- "product bug" --> F["Failing test<br/>in your suite"]
+  F --> FX["Fix"]
+  FX -- "replay the same seed" --> X
+  T -- "simulator bug or known gap" --> R

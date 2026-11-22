@@ -4,19 +4,7 @@ A Claude Code skill that builds a simulation of your product and uses it to find
 
 Status: experimental. It is proven on the demo app in this repo, and it was tried privately on one real multi-sided product: on a commit from before two of its fixed bugs, it re-found both, each confirmed by a failing test. Reports from other projects are welcome as issues.
 
-```mermaid
-flowchart LR
-  D["Detect<br/>routes, roles, money,<br/>senders"] --> Q["Ask<br/>what must never happen"]
-  Q --> R["Rules<br/>each with its source"]
-  R --> P["Plan<br/>you approve it"]
-  P --> B["Build<br/>fixed safety core +<br/>your scenarios"]
-  B --> X["Run<br/>bots against an<br/>isolated copy"]
-  X --> T{"Triage"}
-  T -- "product bug" --> F["Failing test<br/>in your suite"]
-  F --> FX["Fix"]
-  FX -- "replay the same seed" --> X
-  T -- "simulator bug or known gap" --> R
-```
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/workflow-dark.svg"><img src="docs/diagrams/workflow.svg" alt="Flow diagram of the simulate workflow: detect, ask, rules, plan, build, run, triage, then failing test, fix and replay."></picture>
 
 ## How it works
 1. **Detect.** Claude reads your code and docs: the stack, the start command, the roles, the entities and their states, money fields, and every place that sends SMS, mail, push, payments or webhooks. It lists every feature in `sim/FEATURES.md`: all routes from the framework's own route list, plus scheduled jobs, webhooks, realtime channels, admin screens and locale files.
