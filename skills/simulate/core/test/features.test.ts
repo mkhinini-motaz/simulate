@@ -96,3 +96,17 @@ test('parseFeatures accepts CRLF line endings', () => {
   assert.equal(f[0].evidence.length, 1);
   assert.equal(f[1].skip, 'no (source: y)');
 });
+
+test('regular-expression characters in a literal route segment are matched literally', () => {
+  const f = parseFeatures('- `a` x\n  - GET /v1.0/a+b/(c)\n  - GET /x$y');
+  const calls = [{ method: 'GET', path: '/v1x0/a+b/(c)' }, { method: 'GET', path: '/v1.0/aab/(c)' }, { method: 'GET', path: '/v1.0/a+b/(c)' }, { method: 'GET', path: '/x$y' }];
+  const c = coverage(f, calls);
+  assert.equal(c.routes.called, 2);
+  assert.deepEqual(c.unlisted, ['GET /v1x0/a+b/(c)', 'GET /v1.0/aab/(c)']);
+});
+
+test('skip: needs text after it; CRLF leaves no carriage return in it', () => {
+  const f = parseFeatures('- `a` skip:\r\n- `b` skip: \r\n- `c` skip: x\r\n');
+  assert.deepEqual(f.map((x) => x.skip), [undefined, undefined, 'x']);
+  assert.deepEqual(f.map((x) => x.text), ['skip:', 'skip: ', 'skip: x']);
+});

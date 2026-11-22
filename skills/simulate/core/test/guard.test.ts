@@ -166,3 +166,43 @@ test('checkCopy returns a reason for a file or an unreadable folder instead of t
     chmodSync(join(dir, 'locked'), 0o700);
   }
 });
+
+test('a plain name is percent-decoded first, then cut at its last slash', () => {
+  assert.deepEqual(checkEnv({ D: 'a%2Fshop' }, { dbVar: 'D' }).reasons, ['database name "shop" (D) does not end in _sim']);
+  assert.ok(checkEnv({ D: 'a%2Fshop_sim' }, { dbVar: 'D' }).ok);
+});
+
+test('the _sim suffix is case-sensitive', () => {
+  assert.deepEqual(checkEnv({ D: 'shop_SIM' }, { dbVar: 'D' }).reasons, ['database name "shop_SIM" (D) does not end in _sim']);
+});
+
+test('a value with a colon but no scheme goes through new URL and is refused', () => {
+  assert.deepEqual(checkEnv({ D: 'host:5432/x_sim' }, { dbVar: 'D' }).reasons, [
+    'database name "5432" (D) does not end in _sim',
+    'database URL has no host: set an explicit local host (localhost or 127.0.0.1)',
+  ]);
+});
+
+test('the private key pattern stays on one line', () => {
+  const head = '-----BEGIN RSA ';
+  const tail = 'PRIVATE KEY-----';
+  assert.deepEqual(check({ ...good, K: `${head}${tail}\nMIIE` }).reasons, ['K holds a live secret (private key)']);
+  assert.ok(check({ ...good, K: `${head}\n${tail}` }).ok);
+});
+
+test('each secret reason carries its exact label', () => {
+  const live = 'li' + 've_';
+  const want: [string, string][] = [
+    ['sk_' + live + 'abc', 'Stripe live secret key'],
+    ['rk_' + live + 'abc', 'Stripe live restricted key'],
+    ['pk_' + live + 'abc', 'Stripe live publishable key'],
+    ['AK' + 'IA' + 'ABCDEFGHIJKLMNOP', 'AWS access key id'],
+    ['xo' + 'xb-1', 'Slack token'],
+    ['gh' + 'p_abc', 'GitHub token'],
+    ['github' + '_pat_abc', 'GitHub token'],
+    ['S' + 'G.abcdefghijklmnop', 'SendGrid key'],
+    ['AI' + 'za' + 'A'.repeat(35), 'Google API key'],
+    ['-----BEGIN ' + 'PRIVATE KEY-----', 'private key'],
+  ];
+  for (const [value, label] of want) assert.deepEqual(check({ ...good, K: value }).reasons, [`K holds a live secret (${label})`]);
+});

@@ -1,4 +1,4 @@
-import { after, test } from 'node:test';
+import { after, mock, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { execFileSync } from 'node:child_process';
@@ -222,4 +222,80 @@ test('HOME is absolute when the root is relative', async () => {
   const rel = relative(process.cwd(), o.root);
   await runSim({ ...o, root: rel });
   assert.ok(isAbsolute(home), home);
+});
+
+test('a second run folder in the same second gets -2, then -3; the stamp is zero-padded local time', () => {
+  mock.timers.enable({ apis: ['Date'], now: new Date(2027, 0, 2, 3, 4, 5) });
+  try {
+    const root = tmp();
+    const a = startRun({ root, mode: 'every-scenario', seed: 3 });
+    const b = startRun({ root, mode: 'every-scenario', seed: 3 });
+    const c = startRun({ root, mode: 'every-scenario', seed: 3 });
+    assert.equal(a.dir, join(root, 'runs', '2027-01-02-03-04-05-every-scenario-3'));
+    assert.equal(b.dir, `${a.dir}-2`);
+    assert.equal(c.dir, `${a.dir}-3`);
+    assert.ok(existsSync(c.dir));
+  } finally {
+    mock.timers.reset();
+  }
+});
+
+test('a summary list shows 30 lines, then one line saying how many more', () => {
+  const cov = (n: number) => ({
+    features: { total: n, exercised: 0, skipped: 0, notExercised: Array.from({ length: n }, (_, i) => `f${i}`), notMeasured: [] },
+    routes: { total: 0, called: 0, skipped: 0, neverCalled: [] },
+    unlisted: [],
+  });
+  const text = (n: number) => {
+    const run = startRun({ root: tmp(), mode: 'every-scenario', seed: 1 });
+    run.finish(new Checker(rules), {}, cov(n));
+    return readFileSync(join(run.dir, 'summary.md'), 'utf8');
+  };
+  const at30 = text(30);
+  assert.match(at30, /- f29\n/);
+  assert.doesNotMatch(at30, /and \d+ more/);
+  const at31 = text(31);
+  assert.match(at31, /- f29\n- and 1 more \(metrics\.json\)\n/);
+  assert.doesNotMatch(at31, /- f30/);
+});
+
+test('a replay of a run whose metrics.json has no order shuffles with the recorded seed, with no scenario warnings', async () => {
+  const base = one({}, { a: async () => {}, b: async () => {}, c: async () => {}, d: async () => {} });
+  const first = await runSim(base);
+  const m = join(first.dir, 'metrics.json');
+  const { order, ...rest } = JSON.parse(readFileSync(m, 'utf8'));
+  writeFileSync(m, JSON.stringify(rest));
+  const replay = await runSim({ ...base, mode: 'replay', replayDir: first.dir });
+  assert.deepEqual(JSON.parse(readFileSync(join(replay.dir, 'metrics.json'), 'utf8')).order, order);
+  assert.doesNotMatch(readFileSync(join(replay.dir, 'summary.md'), 'utf8'), /Warning: replay: scenario/);
+});
+
+test('an empty scenario name counts as no name; metrics.json keeps it', async () => {
+  const ran: string[] = [];
+  const base = one({}, { a: async () => { ran.push('a'); }, b: async () => { ran.push('b'); } });
+  const { dir } = await runSim({ ...base, scenario: '' });
+  assert.deepEqual([...ran].sort(), ['a', 'b']);
+  assert.equal(JSON.parse(readFileSync(join(dir, 'metrics.json'), 'utf8')).scenario, '');
+  await assert.rejects(runSim({ ...base, mode: 'scenario', scenario: '' }), /scenario mode needs a scenario name/);
+});
+
+test('a scenario seed counts code points and uses only the first UTF-16 unit of each', async () => {
+  let draw = -1;
+  const name = 'a\u{1F600}';
+  await runSim(one({ seed: 5 }, { [name]: async (c: any) => { draw = c.rng.next(); } }));
+  assert.equal(draw, seeded(((5 * 31 + 97) * 31 + 0xd83d) >>> 0).next());
+});
+
+test('warnings made before the run are printed to stderr; stop failed is not', async () => {
+  const lines: string[] = [];
+  const spy = mock.method(console, 'error', (...a: unknown[]) => { lines.push(a.join(' ')); });
+  try {
+    const start = async () => { const app = await fakeApp(); return { ...app, stop: async () => { await app.stop(); throw new Error('boom'); } }; };
+    const base = one({ start }, { a: async () => {} });
+    const first = await runSim(base);
+    await runSim({ ...base, mode: 'replay', replayDir: first.dir, scenarios: { a: async () => {}, z: async () => {} } });
+    assert.deepEqual(lines, ['simulate: replay: commit unknown, cannot tell whether the code changed', 'simulate: replay: scenario "z" is new since that run and is not replayed']);
+  } finally {
+    spy.mock.restore();
+  }
 });

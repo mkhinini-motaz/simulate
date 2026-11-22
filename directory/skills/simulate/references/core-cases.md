@@ -8,7 +8,7 @@ Conventions used below:
 - Cases that expect the commit `unknown` assume the system temp folder is not inside a git repository.
 - `tmp()` makes a new temporary folder (`mkdtempSync` in the system temp folder) and removes it after the file's tests (the `after` hook of `node:test`).
 - `fakeApp()` starts an HTTP server on `127.0.0.1`, port 0, that answers every request with the body `{"ok":true}` and content type `application/json`, and returns `{ baseUrl, stop }` where `stop` closes the server.
-- `one(over, scenarios)` builds run options: root `tmp()`, mode `every-scenario`, seed 3, `rules1`, scenarios (default one scenario `a` that does nothing), `start` = `fakeApp`, `envOpts` = `{ allow: [], fakes: { DB_NAME: 'x_sim' }, dbVar: 'DB_NAME', copyDir: tmp() }`; keys in `over` replace these.
+- `one(over, scenarios)` builds run options (the folders from `tmp()` are absolute paths, so no case depends on the current directory, except the relative-root case below): root `tmp()`, mode `every-scenario`, seed 3, `rules1`, scenarios (default one scenario `a` that does nothing), `start` = `fakeApp`, `envOpts` = `{ allow: [], fakes: { DB_NAME: 'x_sim' }, dbVar: 'DB_NAME', copyDir: tmp() }`; keys in `over` replace these. A replay case reuses the options of its first run as they are (same `root`, same `copyDir`, same scenarios unless the case says otherwise) and changes only `mode: 'replay'` and `replayDir`; it never passes `scenario` (the recorded one comes from `metrics.json`).
 - In guard cases, `check(env, forbiddenHosts?)` is `checkEnv(env, { dbVar: 'DB_NAME', forbiddenHosts })`; "refused with W" means `ok` is false and the reasons joined with newlines match the pattern W; `good` is `{ DB_NAME: 'shop_sim' }`.
 
 ## egress.test.ts
@@ -110,6 +110,12 @@ Features from `## o`, `- \`orders\` O`, `  - GET /orders/:id(.:format)`. `invent
 ### parseFeatures accepts CRLF line endings
 Input (every line ends in `\r\n`): `## orders`, `` - `place` Place an order (source: x) ``, `  - POST /orders`, `  - OUTBOX mail`, `` - `skipme` skip: no (source: y) ``. Result: ids `place`, `skipme`; first feature has area `orders`, text `Place an order (source: x)`, routes `[{ method: 'POST', path: '/orders' }]`, one evidence entry; the second has `skip` equal to `no (source: y)`.
 
+### regular-expression characters in a literal route segment are matched literally
+Features from `- \`a\` x`, `  - GET /v1.0/a+b/(c)`, `  - GET /x$y` (joined with newlines). Calls, all `GET`: `/v1x0/a+b/(c)`, `/v1.0/aab/(c)`, `/v1.0/a+b/(c)`, `/x$y`. Expected: `routes.called` is 2; `unlisted` is `["GET /v1x0/a+b/(c)", "GET /v1.0/aab/(c)"]`.
+
+### skip: needs text after it; CRLF leaves no carriage return in it
+Input (each line ends in `\r\n`): `- \`a\` skip:`, `- \`b\` skip: ` (one trailing space), `- \`c\` skip: x`. The `skip` values are `[undefined, undefined, "x"]`; the `text` values are `["skip:", "skip: ", "skip: x"]`.
+
 ## guard.test.ts
 
 ### a clean sim env passes
@@ -198,6 +204,21 @@ New temp folder `dir`: create folders `apps/api/config` and `vendor/x`; an empty
 |---|---|---|
 | 1 | `checkCopy(dir)` | ok |
 | 2 | create empty `apps/api/config/.env` | reasons joined match `apps/api/config/\.env` |
+
+### a plain name is percent-decoded first, then cut at its last slash
+`checkEnv({ D: 'a%2Fshop' }, { dbVar: 'D' }).reasons` equals exactly `['database name "shop" (D) does not end in _sim']`. `{ D: 'a%2Fshop_sim' }` is ok.
+
+### the _sim suffix is case-sensitive
+`checkEnv({ D: 'shop_SIM' }, { dbVar: 'D' }).reasons` equals exactly `['database name "shop_SIM" (D) does not end in _sim']`.
+
+### a value with a colon but no scheme goes through new URL and is refused
+`checkEnv({ D: 'host:5432/x_sim' }, { dbVar: 'D' }).reasons` equals exactly, in this order: `database name "5432" (D) does not end in _sim`, `database URL has no host: set an explicit local host (localhost or 127.0.0.1)`.
+
+### the private key pattern stays on one line
+With `good`, a variable `K` holding `-----BEGIN RSA ` + `PRIVATE KEY-----` + a line break + `MIIE` gives exactly the reasons `['K holds a live secret (private key)']`. A `K` holding `-----BEGIN RSA ` + a line break + `PRIVATE KEY-----` is ok.
+
+### each secret reason carries its exact label
+With `good` and a variable `K`, the reasons equal exactly `['K holds a live secret (LABEL)']` for these values (build each from pieces as above): `sk_live_abc` gives `Stripe live secret key`; `rk_live_abc` gives `Stripe live restricted key`; `pk_live_abc` gives `Stripe live publishable key`; `AK` + `IA` + `ABCDEFGHIJKLMNOP` gives `AWS access key id`; `xo` + `xb-1` gives `Slack token`; `gh` + `p_abc` and `github` + `_pat_abc` give `GitHub token`; `S` + `G.abcdefghijklmnop` gives `SendGrid key`; `AI` + `za` + 35 times `A` gives `Google API key`; `-----BEGIN ` + `PRIVATE KEY-----` gives `private key`.
 
 ### assertSafe lists every reason
 - `assertSafe(check({}), check({ DB_NAME: 'prod' }))` throws an error whose message matches `missing[\s\S]*_sim[\s\S]*prod`.
@@ -357,4 +378,22 @@ Run once, replay. The replay's `summary.md` matches `Warning: replay: commit unk
 `stop` closes the server and then throws `new Error('stop failed x')`. The run's `summary.md` matches `Warning: stop failed`.
 
 ### HOME is absolute when the root is relative
-`start` records `env.HOME`. Run with `root` set to the temp folder's path relative to the current directory. The recorded `HOME` is an absolute path.
+`start` records `env.HOME`. Run with `root` set to `path.relative(process.cwd(), root)`, where `root` is the absolute path from `tmp()` (so the folder must be reachable from the current directory by a relative path). The recorded `HOME` is an absolute path.
+
+### a second run folder in the same second gets -2, then -3; the stamp is zero-padded local time
+Freeze the clock with `mock.timers.enable({ apis: ['Date'], now: new Date(2027, 0, 2, 3, 4, 5) })` (from `node:test`; call `mock.timers.reset()` afterwards). With one `root`, call `startRun({ root, mode: 'every-scenario', seed: 3 })` three times. The first `dir` is `<root>/runs/2027-01-02-03-04-05-every-scenario-3`; the second is the first plus `-2`; the third is the first plus `-3`; all exist.
+
+### a summary list shows 30 lines, then one line saying how many more
+Call `finish(new Checker(rules1), {}, cov)` where `cov` has `features.notExercised` of `f0` to `f(n-1)` and nothing else listed (zero totals, empty other lists). For n = 30 the `summary.md` contains `- f29` and no `and N more`. For n = 31 it contains `- f29` followed by the line `- and 1 more (metrics.json)`, and no `- f30`.
+
+### a replay of a run whose metrics.json has no order shuffles with the recorded seed, with no scenario warnings
+Scenarios `a` to `d`. Run once, then rewrite its `metrics.json` without the `order` key. Replay. The replay's `metrics.json` `order` equals the first run's `order`; its `summary.md` does not match `Warning: replay: scenario`.
+
+### an empty scenario name counts as no name; metrics.json keeps it
+Scenarios `a` and `b`. `runSim({ ...one(), scenario: '' })` (mode `every-scenario`) runs both; its `metrics.json` has `"scenario": ""`. The same with mode `scenario` rejects with `scenario mode needs a scenario name`.
+
+### a scenario seed counts code points and uses only the first UTF-16 unit of each
+One scenario named `a` + U+1F600 (an emoji), run with seed 5, stores `c.rng.next()`. It equals `seeded(((5 * 31 + 97) * 31 + 0xd83d) >>> 0).next()`.
+
+### warnings made before the run are printed to stderr; stop failed is not
+Replace `console.error` by a recorder (`mock.method`). `stop` closes the server and throws. Run scenario `a` once; replay it with scenarios `a` and `z`. The recorded lines equal exactly: `simulate: replay: commit unknown, cannot tell whether the code changed`, then `simulate: replay: scenario "z" is new since that run and is not replayed`. Nothing about `stop failed` is printed.
